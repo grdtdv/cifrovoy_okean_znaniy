@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+BACKEND с динамическими фонами + VIDEO анимация при уровне +1
+ИСПРАВЛЕННАЯ ВЕРСИЯ - все работает правильно!
+"""
+
 from flask import Flask, jsonify, request, send_file
 import json
 import os
@@ -7,13 +12,12 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+# ==================== КОНФИГ ====================
 GAME_STATE_FILE = 'game_state.json'
 
-# Уровни эволюции ОДНОГО монстра
-EVOLUTION_STAGES = {
+BOSSES = {
     1: {
-        'stage': 1,
-        'name': 'Морской монстр',
+        'name': 'Кракен',
         'emoji': '👹',
         'max_hp': 100,
         'image': '/media/monster1.jpeg',
@@ -22,12 +26,10 @@ EVOLUTION_STAGES = {
         'background_gradient': 'linear-gradient(135deg, #001a33 0%, #003d5c 50%, #001f3f 100%)',
         'light_intensity': 0.2,
         'water_effect': True,
-        'particle_color': '#00ccff',
-        'description': 'Базовая форма'
+        'particle_color': '#00ccff'
     },
     2: {
-        'stage': 2,
-        'name': 'Эволюция 1',
+        'name': 'Дракон',
         'emoji': '🐉',
         'max_hp': 150,
         'image': '/media/monster2.jpeg',
@@ -36,12 +38,10 @@ EVOLUTION_STAGES = {
         'background_gradient': 'linear-gradient(135deg, #0066cc 0%, #0099ff 50%, #004080 100%)',
         'light_intensity': 0.5,
         'water_effect': True,
-        'particle_color': '#00ffff',
-        'description': 'Первая эволюция'
+        'particle_color': '#00ffff'
     },
     3: {
-        'stage': 3,
-        'name': 'Эволюция 2',
+        'name': 'Привидение',
         'emoji': '👻',
         'max_hp': 80,
         'image': '/media/monster3.jpeg',
@@ -50,12 +50,10 @@ EVOLUTION_STAGES = {
         'background_gradient': 'linear-gradient(135deg, #00ccff 0%, #66ffff 50%, #0099ff 100%)',
         'light_intensity': 0.8,
         'water_effect': True,
-        'particle_color': '#ffffff',
-        'description': 'Вторая эволюция'
+        'particle_color': '#ffffff'
     },
     4: {
-        'stage': 4,
-        'name': 'Финальная форма',
+        'name': 'Лавовый дракон',
         'emoji': '🐲',
         'max_hp': 200,
         'image': '/media/monster4.jpeg',
@@ -64,18 +62,17 @@ EVOLUTION_STAGES = {
         'background_gradient': 'linear-gradient(135deg, #660000 0%, #ff3300 30%, #330000 100%)',
         'light_intensity': 0.6,
         'water_effect': False,
-        'particle_color': '#ffaa00',
-        'description': 'Финальная мега форма'
+        'particle_color': '#ffaa00'
     },
 }
 
 def create_media_directory():
-    """Создать директорию для медиа-файлов"""
+    """Создать директорию для медиа-файлов если её нет"""
     if not os.path.exists('media'):
         os.makedirs('media')
 
 def load_game_state():
-    """Загрузить состояние игры"""
+    """Загрузить состояние игры из файла"""
     if os.path.exists(GAME_STATE_FILE):
         try:
             with open(GAME_STATE_FILE, 'r', encoding='utf-8') as f:
@@ -84,24 +81,25 @@ def load_game_state():
             pass
     
     return {
-        'stage': 1,
-        'current_hp': EVOLUTION_STAGES[1]['max_hp'],
-        'max_hp': EVOLUTION_STAGES[1]['max_hp'],
+        'level': 1,
+        'current_hp': BOSSES[1]['max_hp'],
+        'max_hp': BOSSES[1]['max_hp'],
         'last_updated': datetime.now().isoformat()
     }
 
 def save_game_state(state):
-    """Сохранить состояние игры"""
+    """Сохранить состояние игры в файл"""
     try:
         with open(GAME_STATE_FILE, 'w', encoding='utf-8') as f:
             json.dump(state, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"❌ Ошибка сохранения: {e}")
 
-def get_evolution_info(stage):
-    """Получить информацию об эволюции по стадии"""
-    stage = max(1, min(4, stage))
-    return EVOLUTION_STAGES[stage]
+def get_boss_info(level):
+    """Получить информацию о боссе по уровню"""
+    # Если уровень > 4, циклируем (5 -> 1, 6 -> 2, и т.д.)
+    boss_level = ((level - 1) % len(BOSSES)) + 1
+    return BOSSES[boss_level]
 
 # ==================== API ROUTES ====================
 
@@ -109,123 +107,107 @@ def get_evolution_info(stage):
 def get_game_state():
     """Получить текущее состояние игры"""
     state = load_game_state()
-    evolution_info = get_evolution_info(state['stage'])
+    boss_info = get_boss_info(state['level'])
     
     response_data = {
-        'stage': state['stage'],
+        'level': state['level'],
         'hp': state['current_hp'],
         'max_hp': state['max_hp'],
-        'monster_name': evolution_info['name'],
-        'description': evolution_info['description'],
-        'emoji': evolution_info['emoji'],
-        'image': evolution_info['image'],
+        'monster': boss_info['name'],
+        'emoji': boss_info['emoji'],
+        'image': boss_info['image'],
         'background': {
-            'name': evolution_info['background'],
-            'color': evolution_info['background_color'],
-            'gradient': evolution_info['background_gradient'],
-            'light_intensity': evolution_info['light_intensity'],
-            'water_effect': evolution_info['water_effect'],
-            'particle_color': evolution_info['particle_color'],
+            'name': boss_info['background'],
+            'color': boss_info['background_color'],
+            'gradient': boss_info['background_gradient'],
+            'light_intensity': boss_info['light_intensity'],
+            'water_effect': boss_info['water_effect'],
+            'particle_color': boss_info['particle_color'],
         },
         'timestamp': state['last_updated']
     }
     
-    print(f"📊 GET /api/game: Стадия {state['stage']}, ХП {state['current_hp']}/{state['max_hp']}")
+    print(f"📊 GET /api/game: Уровень {state['level']}, ХП {state['current_hp']}/{state['max_hp']}")
     return jsonify(response_data)
 
 @app.route('/api/award-points', methods=['POST'])
 def award_points():
-    """Учитель начисляет баллы (урон монстру)"""
+    """Учитель начисляет баллы (урон боссу)"""
     try:
         data = request.json or {}
         amount = int(data.get('amount', 0))
         
-        print(f"📥 award_points: получено {amount} баллов")
-        
         state = load_game_state()
-        damage = max(1, amount // 10)
-        
-        print(f"💥 Урон: {damage}, ХП было: {state['current_hp']}")
+        damage = max(1, amount // 10)  # Минимум 1 урон
         
         state['current_hp'] = max(0, state['current_hp'] - damage)
         state['last_updated'] = datetime.now().isoformat()
         save_game_state(state)
         
-        evolution_info = get_evolution_info(state['stage'])
+        boss_info = get_boss_info(state['level'])
         
         response_data = {
             'success': True,
             'damage': damage,
             'new_hp': state['current_hp'],
             'max_hp': state['max_hp'],
-            'monster_dead': state['current_hp'] <= 0,
-            'stage': state['stage'],
-            'monster_name': evolution_info['name']
+            'boss_dead': state['current_hp'] <= 0,
+            'level': state['level'],
+            'monster': boss_info['name']
         }
         
-        print(f"✅ Новое ХП: {state['current_hp']}")
+        print(f"💥 award_points: Урон {damage}, осталось {state['current_hp']} ХП")
         return jsonify(response_data)
     except Exception as e:
         print(f"❌ Ошибка award_points: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
 
-@app.route('/api/evolve', methods=['POST'])
-def evolve():
-    """ЭВОЛЮЦИЯ: переход на следующую стадию"""
+@app.route('/api/level-up', methods=['POST'])
+def level_up():
+    """Переход на новый уровень"""
     try:
         state = load_game_state()
         
-        old_stage = state['stage']
+        # ГЛАВНОЕ: Увеличиваем уровень СНАЧАЛА
+        old_level = state['level']
+        state['level'] = old_level + 1
         
-        # Максимум 4 стадии
-        if old_stage >= 4:
-            return jsonify({
-                'success': False,
-                'error': 'Монстр уже в финальной форме!'
-            }), 400
-        
-        # Переходим на следующую стадию
-        state['stage'] = old_stage + 1
-        
-        # Получаем информацию о новой стадии
-        next_evolution = get_evolution_info(state['stage'])
+        # Получаем информацию о новом боссе
+        next_boss = get_boss_info(state['level'])
         
         # Обновляем ХП
-        state['current_hp'] = next_evolution['max_hp']
-        state['max_hp'] = next_evolution['max_hp']
+        state['current_hp'] = next_boss['max_hp']
+        state['max_hp'] = next_boss['max_hp']
         state['last_updated'] = datetime.now().isoformat()
         
-        # ВАЖНО: Сохраняем ДО отправки ответа
+        # ВАЖНО: Сохраняем ВСЕ изменения ПЕРЕД отправкой ответа
         save_game_state(state)
         
         response_data = {
             'success': True,
-            'old_stage': old_stage,
-            'new_stage': state['stage'],
-            'monster_name': next_evolution['name'],
-            'emoji': next_evolution['emoji'],
-            'image': next_evolution['image'],
-            'description': next_evolution['description'],
+            'old_level': old_level,
+            'new_level': state['level'],
+            'new_boss': next_boss['name'],
+            'emoji': next_boss['emoji'],
+            'image': next_boss['image'],
             'new_hp': state['current_hp'],
             'new_max_hp': state['max_hp'],
-            'evolution_video': '/media/next_level.mp4',
+            'level_up_video': '/media/next_level.mp4',
             'background': {
-                'name': next_evolution['background'],
-                'color': next_evolution['background_color'],
-                'gradient': next_evolution['background_gradient'],
-                'light_intensity': next_evolution['light_intensity'],
-                'water_effect': next_evolution['water_effect'],
-                'particle_color': next_evolution['particle_color'],
+                'name': next_boss['background'],
+                'color': next_boss['background_color'],
+                'gradient': next_boss['background_gradient'],
+                'light_intensity': next_boss['light_intensity'],
+                'water_effect': next_boss['water_effect'],
+                'particle_color': next_boss['particle_color'],
             }
         }
         
-        print(f"🚀 ЭВОЛЮЦИЯ: Стадия {old_stage} → {state['stage']}")
-        print(f"📖 Новая форма: {next_evolution['name']}")
+        print(f"🚀 level_up: Уровень {old_level} → {state['level']}")
+        print(f"📖 Новый босс: {next_boss['name']}")
         return jsonify(response_data)
     except Exception as e:
-        print(f"❌ Ошибка evolve: {e}")
+        print(f"❌ Ошибка level_up: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -240,7 +222,7 @@ def reset_game():
         state = load_game_state()
         save_game_state(state)
         
-        print("♻️ Игра перезагружена")
+        print("♻️  Игра перезагружена")
         return jsonify({'success': True, 'message': 'Game reset'})
     except Exception as e:
         print(f"❌ Ошибка reset: {e}")
@@ -283,6 +265,7 @@ def student():
             transition: background 0.8s ease-in-out;
         }
         
+        /* Фоны по уровням */
         body.bg-ocean-deep {
             background: linear-gradient(135deg, #001a33 0%, #003d5c 50%, #001f3f 100%);
         }
@@ -296,6 +279,7 @@ def student():
             background: linear-gradient(135deg, #660000 0%, #ff3300 30%, #330000 100%);
         }
         
+        /* По умолчанию */
         body {
             background: linear-gradient(135deg, #001a33 0%, #003d5c 50%, #001f3f 100%);
         }
@@ -311,7 +295,7 @@ def student():
             text-align: center;
         }
         .header h1 { color: #1e5a96; margin-bottom: 10px; }
-        .header p { color: #666; font-size: 14px; }
+        .header p { color: #666; }
         
         .monster-card {
             background: rgba(255, 224, 178, 0.95);
@@ -340,9 +324,8 @@ def student():
             to { opacity: 1; transform: scale(1) translateY(0); }
         }
         
-        .monster-name { font-size: 28px; font-weight: bold; color: #333; margin-bottom: 5px; }
-        .monster-stage { font-size: 14px; color: #999; margin-bottom: 15px; }
-        .monster-description { font-size: 16px; color: #666; margin-bottom: 20px; font-style: italic; }
+        .monster-name { font-size: 28px; font-weight: bold; color: #333; margin-bottom: 15px; }
+        .monster-level { font-size: 16px; color: #666; margin-bottom: 20px; }
         
         .hp-bar-container {
             background: rgba(200, 200, 200, 0.5);
@@ -367,6 +350,7 @@ def student():
         .status { padding: 15px; background: rgba(255, 255, 255, 0.9); border-radius: 8px; margin-bottom: 20px; display: none; }
         .status.show { display: block; }
         
+        /* ВИДЕО НА ВЕСЬ ЭКРАН */
         .video-overlay {
             display: none;
             position: fixed;
@@ -421,16 +405,15 @@ def student():
         
         <div class="header">
             <h1>👨‍🎓 Портал ученика</h1>
-            <p id="stageDisplay">Стадия: <span id="stageNum">1</span>/4</p>
+            <p id="levelDisplay">Уровень: <span id="levelNum">1</span></p>
         </div>
         
         <div id="statusMessage" class="status"></div>
         
         <div class="monster-card">
             <img id="monsterImage" class="monster-image" src="/media/monster1.jpeg" alt="Монстр">
-            <div class="monster-name" id="monsterName">Морской монстр</div>
-            <div class="monster-stage" id="monsterStage">Стадия 1</div>
-            <div class="monster-description" id="monsterDesc">Базовая форма</div>
+            <div class="monster-name" id="monsterName">Кракен</div>
+            <div class="monster-level">Уровень 1</div>
             
             <div class="hp-bar-container">
                 <div class="hp-bar" id="hpBar" style="width: 100%;">
@@ -440,16 +423,18 @@ def student():
         </div>
     </div>
     
+    <!-- ВИДЕО НА ВЕСЬ ЭКРАН -->
     <div class="video-overlay" id="videoOverlay">
         <div class="video-container">
-            <video id="evolutionVideo" autoplay playsinline>
+            <video id="levelUpVideo" autoplay playsinline>
                 <source src="/media/next_level.mp4" type="video/mp4">
+                Ваш браузер не поддерживает видео
             </video>
         </div>
     </div>
     
     <script>
-        let lastStage = 1;
+        let lastLevel = 1;
         let lastHp = 100;
         let lastBackground = 'ocean_deep';
         let syncInProgress = false;
@@ -462,25 +447,37 @@ def student():
                 const response = await fetch('/api/game');
                 const data = await response.json();
                 
+                console.log('📊 Sync data:', {
+                    level: data.level,
+                    hp: data.hp,
+                    max_hp: data.max_hp,
+                    bg: data.background.name
+                });
+                
+                // Обновить фон если он изменился
                 if (data.background && data.background.name !== lastBackground) {
+                    console.log('🎨 Фон меняется:', lastBackground, '→', data.background.name);
                     updateBackground(data.background);
                     lastBackground = data.background.name;
                 }
                 
-                if (data.stage > lastStage) {
-                    showEvolutionAnimation(data);
-                    lastStage = data.stage;
+                // Проверка на новый уровень
+                if (data.level > lastLevel) {
+                    console.log('🚀 НОВЫЙ УРОВЕНЬ:', lastLevel, '→', data.level);
+                    showLevelUpAnimation(data);
+                    lastLevel = data.level;
                 }
                 
+                // Обновить ХП если изменился
                 if (data.hp !== lastHp) {
+                    console.log('💚 ХП меняется:', lastHp, '→', data.hp);
                     animateHpChange(lastHp, data.hp, data.max_hp);
                     lastHp = data.hp;
                 }
                 
-                document.getElementById('monsterName').textContent = data.monster_name;
-                document.getElementById('stageNum').textContent = data.stage;
-                document.getElementById('monsterStage').textContent = 'Стадия ' + data.stage;
-                document.getElementById('monsterDesc').textContent = data.description;
+                // Обновить UI
+                document.getElementById('monsterName').textContent = data.monster;
+                document.getElementById('levelNum').textContent = data.level;
                 document.getElementById('monsterImage').src = data.image;
                 
             } catch (error) {
@@ -492,10 +489,15 @@ def student():
         
         function updateBackground(backgroundData) {
             const body = document.body;
+            
+            // Удалить все классы фона
             body.classList.remove('bg-ocean-deep', 'bg-ocean-mid', 'bg-ocean-shallow', 'bg-volcano');
             
+            // Добавить новый класс
             const bgClassName = 'bg-' + backgroundData.name.replace(/_/g, '-');
             body.classList.add(bgClassName);
+            
+            console.log('✅ Фон применен:', bgClassName);
             
             if (backgroundData.water_effect) {
                 createWaterParticles(backgroundData.particle_color);
@@ -535,29 +537,44 @@ def student():
             }, 50);
         }
         
-        async function showEvolutionAnimation(data) {
+        async function showLevelUpAnimation(data) {
+            console.log('🎬 Показываем видео...');
+            
             try {
                 const videoOverlay = document.getElementById('videoOverlay');
-                const videoElement = document.getElementById('evolutionVideo');
+                const videoElement = document.getElementById('levelUpVideo');
                 
+                // Показать видео
                 videoOverlay.classList.add('show');
-                videoElement.src = '/media/next_level.mp4';
+                console.log('✅ Видео-overlay показан');
                 
+                // Убедиться что видео есть
+                const videoSrc = '/media/next_level.mp4';
+                videoElement.src = videoSrc;
+                
+                // Попробовать воспроизвести
                 const playPromise = videoElement.play();
                 if (playPromise !== undefined) {
-                    playPromise.catch(error => {
+                    playPromise.then(() => {
+                        console.log('✅ Видео воспроизводится');
+                    }).catch(error => {
                         console.error('❌ Ошибка воспроизведения:', error);
                     });
                 }
                 
+                // Confetti!
                 createConfetti();
                 
+                // Закрыть после завершения видео
                 videoElement.onended = () => {
+                    console.log('✅ Видео закончилось');
                     videoOverlay.classList.remove('show');
                 };
                 
+                // Или закрыть через 8 сек макс
                 setTimeout(() => {
                     videoOverlay.classList.remove('show');
+                    console.log('⏱️ Видео закрыто (timeout)');
                 }, 8000);
                 
             } catch (error) {
@@ -566,6 +583,7 @@ def student():
         }
         
         function createConfetti() {
+            console.log('🎉 Confetti!');
             for (let i = 0; i < 50; i++) {
                 setTimeout(() => {
                     const conf = document.createElement('div');
@@ -587,7 +605,11 @@ def student():
             }
         }
         
+        // Синхронизация каждые 300мс (быстрее!)
         setInterval(syncWithServer, 300);
+        
+        // Первая загрузка
+        console.log('🚀 Загружаем первый раз...');
         syncWithServer();
     </script>
 </body>
@@ -638,7 +660,7 @@ def teacher():
             font-weight: bold;
             color: #333;
         }
-        input {
+        select, input {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
@@ -680,6 +702,8 @@ def teacher():
             margin-bottom: 20px;
             font-weight: bold;
         }
+        
+        .debug { background: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 12px; font-family: monospace; }
     </style>
 </head>
 <body>
@@ -688,56 +712,66 @@ def teacher():
         
         <div class="header">
             <h1>👨‍🏫 Панель учителя</h1>
-            <p>Управление эволюцией монстра</p>
+            <p>Управление игровым процессом</p>
         </div>
         
         <div class="card">
-            <h2>🎮 Атака монстра</h2>
+            <h2>🎮 Начислить баллы</h2>
             <div id="statusMessage" class="status"></div>
             
             <div class="form-group">
-                <label>Сумма атаки:</label>
-                <input type="number" id="attackInput" value="100" min="0" max="1000">
+                <label>Количество баллов:</label>
+                <input type="number" id="pointsInput" value="100" min="0" max="1000">
             </div>
             
-            <button class="btn btn-primary" onclick="attackMonster()">⚔️ Атаковать!</button>
+            <button class="btn btn-primary" onclick="awardPoints()">✅ Начислить баллы</button>
         </div>
         
         <div class="card">
-            <h2>📊 Статус монстра</h2>
-            <div id="monsterStatus" style="padding: 15px; background: #f5f5f5; border-radius: 5px; margin-bottom: 15px;">
-                <p id="statusInfo">Загрузка...</p>
+            <h2>📊 Статус</h2>
+            <div id="bossStatus" style="padding: 15px; background: #f5f5f5; border-radius: 5px; margin-bottom: 15px;">
+                <p id="bossInfo">Загрузка...</p>
             </div>
-            <button class="btn btn-danger" onclick="evolveMonster()">✨ ЭВОЛЮЦИЯ!</button>
+            <button class="btn btn-danger" onclick="levelUp()">🚀 УРОВЕНЬ +1</button>
+        </div>
+        
+        <div class="card">
+            <h2>🔧 Отладка</h2>
+            <button class="btn btn-primary" onclick="resetGame()" style="background: #ff9800;">♻️ Сбросить игру</button>
+            <div id="debugInfo" class="debug" style="margin-top: 10px; white-space: pre-wrap; max-height: 200px; overflow-y: auto;"></div>
         </div>
     </div>
     
     <script>
-        async function updateMonsterStatus() {
+        let debugLog = [];
+        
+        function addDebug(msg) {
+            debugLog.push('[' + new Date().toLocaleTimeString() + '] ' + msg);
+            if (debugLog.length > 10) debugLog.shift();
+            document.getElementById('debugInfo').textContent = debugLog.join('\\n');
+        }
+        
+        async function updateBossStatus() {
             try {
                 const response = await fetch('/api/game');
                 const data = await response.json();
                 
-                const info = document.getElementById('statusInfo');
+                const info = document.getElementById('bossInfo');
                 info.innerHTML = `
-                    <strong>${data.emoji} ${data.monster_name}</strong><br>
-                    Стадия: ${data.stage}/4<br>
-                    ХП: ${data.hp}/${data.max_hp}<br>
-                    <small>${data.description}</small>
+                    <strong>${data.emoji} ${data.monster}</strong><br>
+                    Уровень: ${data.level}<br>
+                    ХП: ${data.hp}/${data.max_hp}
                 `;
-                console.log('✅ Статус обновлён:', data);
+                addDebug(`Status: L${data.level} ${data.monster} ${data.hp}/${data.max_hp}HP`);
             } catch (error) {
-                console.error('❌ Error updateMonsterStatus:', error);
+                addDebug('❌ Status error: ' + error.message);
             }
         }
         
-        async function attackMonster() {
-            const attackInput = document.getElementById('attackInput');
-            const attack = parseInt(attackInput.value);
+        async function awardPoints() {
+            const points = parseInt(document.getElementById('pointsInput').value);
             
-            console.log('⚔️ Отправляем атаку:', attack);
-            
-            if (attack <= 0) {
+            if (points <= 0) {
                 showStatus('❌ Введите положительное число', 'error');
                 return;
             }
@@ -746,47 +780,63 @@ def teacher():
                 const response = await fetch('/api/award-points', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount: attack })
+                    body: JSON.stringify({ amount: points })
                 });
                 
                 const data = await response.json();
-                console.log('📥 Ответ от сервера:', data);
                 
                 if (data.success) {
-                    showStatus(`⚔️ АТАКА: ${attack} баллов! Урон: ${data.damage}HP. ХП: ${data.new_hp}/${data.max_hp}`, 'success');
+                    showStatus(`✅ ${points} баллов! Урон: ${data.damage}HP. Осталось: ${data.new_hp}/${data.max_hp}HP`, 'success');
+                    addDebug(`Award: +${points} баллов, ${data.damage} урона`);
                     
-                    if (data.monster_dead) {
-                        showStatus('💀 МОНСТР ОСЛАБЛЕН! Нажмите ✨ ЭВОЛЮЦИЯ!', 'success');
+                    if (data.boss_dead) {
+                        showStatus('☠️ БОСС УБИТ! Нажмите УРОВЕНЬ +1', 'success');
+                        addDebug('Boss defeated!');
                     }
                     
-                    updateMonsterStatus();
-                } else {
-                    showStatus('❌ Ошибка: ' + data.error, 'error');
+                    updateBossStatus();
                 }
             } catch (error) {
-                console.error('❌ attackMonster error:', error);
-                showStatus('❌ Ошибка сети: ' + error.message, 'error');
+                showStatus('❌ Ошибка: ' + error, 'error');
+                addDebug('❌ Award error: ' + error);
             }
         }
         
-        async function evolveMonster() {
-            console.log('✨ Отправляем команду эволюции');
-            
+        async function levelUp() {
             try {
-                const response = await fetch('/api/evolve', { method: 'POST' });
+                addDebug('Requesting level-up...');
+                const response = await fetch('/api/level-up', { method: 'POST' });
                 const data = await response.json();
                 
-                console.log('📥 Ответ эволюции:', data);
-                
                 if (data.success) {
-                    showStatus(`✨ ЭВОЛЮЦИЯ! ${data.emoji} ${data.monster_name}!\\n${data.description}`, 'success');
-                    updateMonsterStatus();
+                    addDebug(`✅ Level up: ${data.old_level} → ${data.new_level}`);
+                    showStatus(`✅ УРОВЕНЬ ${data.new_level}!\n🎮 Новый босс: ${data.emoji} ${data.new_boss}`, 'success');
+                    updateBossStatus();
                 } else {
-                    showStatus('❌ ' + data.error, 'error');
+                    addDebug(`❌ Level-up failed: ${data.error}`);
+                    showStatus('❌ Ошибка: ' + data.error, 'error');
                 }
             } catch (error) {
-                console.error('❌ evolveMonster error:', error);
-                showStatus('❌ Ошибка: ' + error.message, 'error');
+                addDebug('❌ Level-up error: ' + error);
+                showStatus('❌ Ошибка: ' + error, 'error');
+            }
+        }
+        
+        async function resetGame() {
+            if (!confirm('Вы уверены? Это сбросит всё!')) return;
+            
+            try {
+                const response = await fetch('/api/reset', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('✅ Игра сброшена', 'success');
+                    addDebug('Game reset');
+                    updateBossStatus();
+                }
+            } catch (error) {
+                addDebug('❌ Reset error: ' + error);
+                showStatus('❌ Ошибка: ' + error, 'error');
             }
         }
         
@@ -794,13 +844,11 @@ def teacher():
             const elem = document.getElementById('statusMessage');
             elem.textContent = message;
             elem.className = 'status show ' + type;
-            setTimeout(() => { elem.classList.remove('show'); }, 5000);
+            setTimeout(() => { elem.classList.remove('show'); }, 4000);
         }
         
-        setInterval(updateMonsterStatus, 500);
-        updateMonsterStatus();
-        
-        console.log('🚀 Панель учителя загружена');
+        setInterval(updateBossStatus, 500);
+        updateBossStatus();
     </script>
 </body>
 </html>
@@ -815,7 +863,7 @@ def index():
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Эволюция монстра</title>
+    <title>Цифровой океан знаний</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI'; background: linear-gradient(135deg, #1e5a96 0%, #32b8c6 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -830,10 +878,10 @@ def index():
 </head>
 <body>
     <div class="container">
-        <h1>🐉 Эволюция монстра</h1>
+        <h1>🌊 Цифровой океан знаний</h1>
         <div class="button-group">
-            <a href="/student" class="btn btn-student">👨‍🎓 Смотреть</a>
-            <a href="/teacher" class="btn btn-teacher">👨‍🏫 Управлять</a>
+            <a href="/student" class="btn btn-student">👨‍🎓 Ученик</a>
+            <a href="/teacher" class="btn btn-teacher">👨‍🏫 Учитель</a>
         </div>
     </div>
 </body>
@@ -844,7 +892,8 @@ if __name__ == '__main__':
     create_media_directory()
     print("=" * 60)
     print("🚀 Запуск сервера на http://localhost:5000")
-    print("🐉 ЭВОЛЮЦИЯ МОНСТРА - система активирована!")
+    print("📁 Директория 'media' создана")
+    print("🎬 Видео-анимация активирована!")
     print("👨‍🎓 Ученик: http://localhost:5000/student")
     print("👨‍🏫 Учитель: http://localhost:5000/teacher")
     print("=" * 60)
