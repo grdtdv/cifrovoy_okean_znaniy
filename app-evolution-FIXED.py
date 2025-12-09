@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-BACKEND: ЭВОЛЮЦИЯ ОДНОГО МОНСТРА - ИСПРАВЛЕННАЯ ВЕРСИЯ
-Ошибка в award_points была с полем 'stage' - исправлено!
-"""
-
 from flask import Flask, jsonify, request, send_file
 import json
 import os
